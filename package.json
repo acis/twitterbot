@@ -1,0 +1,10 @@
+{
+    "name":"twitterbot",
+    "description":"Anca's Twitter Bot",
+    "version":"0.0.1",
+    "private":true,
+    "dependencies":{
+        "https": "*",
+        "oauth": "*"
+    }
+}

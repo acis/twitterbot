@@ -1,0 +1,141 @@
+0 info it worked if it ends with ok
+1 verbose cli [ '/home/anca/bin/node', '/home/anca/bin/npm', 'install', 'yajl' ]
+2 info using npm@1.2.11
+3 info using node@v0.8.21
+4 verbose read json /home/anca/WebstormProjects/twitterbot/package.json
+5 warn package.json twitterbot@0.0.1 No README.md file found!
+6 verbose read json /home/anca/WebstormProjects/twitterbot/node_modules/qs/package.json
+7 verbose read json /home/anca/WebstormProjects/twitterbot/node_modules/streamline/package.json
+8 verbose read json /home/anca/WebstormProjects/twitterbot/node_modules/event-stream/package.json
+9 verbose read json /home/anca/WebstormProjects/twitterbot/node_modules/request/package.json
+10 verbose read json /home/anca/WebstormProjects/twitterbot/node_modules/neo4j/package.json
+11 verbose read json /home/anca/WebstormProjects/twitterbot/node_modules/JSONStream/package.json
+12 verbose read json /home/anca/WebstormProjects/twitterbot/node_modules/oauth/package.json
+13 verbose from cache /home/anca/WebstormProjects/twitterbot/package.json
+14 verbose readDependencies using package.json deps
+15 verbose cache add [ 'yajl', null ]
+16 verbose cache add name=undefined spec="yajl" args=["yajl",null]
+17 verbose parsed url { pathname: 'yajl', path: 'yajl', href: 'yajl' }
+18 silly lockFile 5d226c19-yajl yajl
+19 verbose lock yajl /home/anca/.npm/5d226c19-yajl.lock
+20 silly lockFile 5d226c19-yajl yajl
+21 silly lockFile 5d226c19-yajl yajl
+22 verbose addNamed [ 'yajl', '' ]
+23 verbose addNamed [ null, '' ]
+24 silly lockFile eedaee61-yajl yajl@
+25 verbose lock yajl@ /home/anca/.npm/eedaee61-yajl.lock
+26 silly addNameRange { name: 'yajl', range: '', hasData: false }
+27 verbose url raw yajl
+28 verbose url resolving [ 'https://registry.npmjs.org/', './yajl' ]
+29 verbose url resolved https://registry.npmjs.org/yajl
+30 info trying registry request attempt 1 at 19:32:18
+31 verbose etag "1PFO9DOIXJNW86X5TQQ1Y04U3"
+32 http GET https://registry.npmjs.org/yajl
+33 http 304 https://registry.npmjs.org/yajl
+34 silly registry.get cb [ 304,
+34 silly registry.get   { server: 'CouchDB/1.3.1 (Erlang OTP/R15B03)',
+34 silly registry.get     etag: '"1PFO9DOIXJNW86X5TQQ1Y04U3"',
+34 silly registry.get     date: 'Fri, 01 Nov 2013 18:32:19 GMT',
+34 silly registry.get     'content-length': '0' } ]
+35 verbose etag yajl from cache
+36 silly addNameRange number 2 { name: 'yajl', range: '', hasData: true }
+37 silly addNameRange versions [ 'yajl', [ '0.8.0', '0.8.1' ] ]
+38 verbose addNamed [ 'yajl', '0.8.1' ]
+39 verbose addNamed [ '0.8.1', '0.8.1' ]
+40 silly lockFile 5e93481d-yajl-0-8-1 yajl@0.8.1
+41 verbose lock yajl@0.8.1 /home/anca/.npm/5e93481d-yajl-0-8-1.lock
+42 verbose read json /home/anca/.npm/yajl/0.8.1/package/package.json
+43 silly lockFile 5e93481d-yajl-0-8-1 yajl@0.8.1
+44 silly lockFile 5e93481d-yajl-0-8-1 yajl@0.8.1
+45 silly lockFile eedaee61-yajl yajl@
+46 silly lockFile eedaee61-yajl yajl@
+47 silly resolved [ { name: 'yajl',
+47 silly resolved     version: '0.8.1',
+47 silly resolved     description: 'Binding for libyajl',
+47 silly resolved     author: { name: 'Artem S Vybornov', email: 'vybornov@gmail.com' },
+47 silly resolved     contributors: [ [Object], [Object], [Object], [Object] ],
+47 silly resolved     main: './yajl.js',
+47 silly resolved     scripts: { test: 'node ./test.js', install: 'node-gyp rebuild' },
+47 silly resolved     repository:
+47 silly resolved      { type: 'git',
+47 silly resolved        url: 'git://github.com/vibornoff/node-yajl.git',
+47 silly resolved        web: 'http://github.com/vibornoff/node-yajl' },
+47 silly resolved     gypfile: true,
+47 silly resolved     readme: '# YAJL (Yet Another JSON Library) binding for Node.js\n\n[YAJL](http://lloyd.github.com/yajl/) is a low-level sax-like JSON parser\ndeveloped and maintained by Lloyd Hilaiel.\n\n[Node-yajl](http://github.com/vibornoff/node-yajl) provides a glue that brings\nYAJL into [Node.js](http://github.com/joyent/node) ecosystem. Main feature\nof this project is a stream JSON parser allowing you to parse data\nwithout explicitly delimitting data stream into valid-value chunks.\n\n[Node-yajl](http://github.com/vibornoff/node-yajl) is forked from\n[yajl-js](http://bitbucket.org/nikhilm/yajl-js) originally developed\nby Nikhil Marathe and seems to be no longer maintained.\n\n## Synopsis\n\n```js\nvar yajl = require(\'yajl\');\n\nvar h = new yajl.Handle();\nh.on( \'error\',      function (_) { console.debug(_)     });\n\nh.on( \'startMap\',   function ( ) { console.debug(\'{\')   });\nh.on( \'endMap\',     function ( ) { console.debug(\'}\')   });\nh.on( \'startArray\', function ( ) { console.debug(\'[\')   });\nh.on( \'endArray\',   function ( ) { console.debug(\']\')   });\nh.on( \'mapKey\',     function (_) { console.debug(_+\':\') });\nh.on( \'null\',       function (_) { console.debug(\'null\')});\nh.on( \'boolean\',    function (_) { console.debug(_)     });\nh.on( \'string\',     function (_) { console.debug(_)     });\nh.on( \'integer\',    function (_) { console.debug(_)     });\nh.on( \'double\',     function (_) { console.debug(_)     });\n\nvar data = [\n    \'{"some"\',\n    \':["JSON\',\n    \'"],"data\',\n    \'":[-3.5]}\'\n];\n\nfor ( var i in data ) {\n    h.parse( data[i] );\n}\n\nh.completeParse();\n```\n\n## Build & install\n\nEasy mode:\n\n    npm install yajl\n\nBuild and install manually:\n\n    node-waf configure build\n    node ./test.js\n    npm install .\n\nNote that this package requires C++ building environment and \'libyajl\' at least\nof version 2 and its dev headers to be installed on target system.\n\nSee [yajl homepage](http://lloyd.github.com/yajl/) for details about building\nand installing \'libyajl\'.\n\n## API\n\n### yajl.Handle(opts)\n\n`Handle` object constructor.\nClass `Handle` itself is a subclass of `events.EventEmitter`.\n\nOptional argument `opts` can be passed to constructor.\nWhen `opts` is ommited or `null`, these defaults are used:\n\n```js\n{\n    allowComments         : false,\n    dontValidateStrings   : false,\n    allowTrailingGarbage  : false,\n    allowMultipleValues   : false,\n    allowPartialValues    : false\n}\n```\n\n#### handle.parse(string)\n\nParse a data chunk possibly raising number of events.\n\n#### handle.parseComplete()\n\nParse any ramaining buffered data.\n\nBecause of `yajl`\'s stream nature it can\'t sometimes determine when the recently\nparsed data contains a valid JSON value or there need more data (e.g. when parsing numeric values).\nSo it\'s a good idea to call this method every time you reach the end of data stream.\n\n#### handle.getBytesConsumed()\n\nGet the amount of data consumed from the last chunk passed to `handle`.\n\nIn the case of a successful parse this can help you understand\nif the entire buffer was consumed or not.\n\n#### Events\n * \'startMap\'\n * \'endMap\'\n * \'startArray\'\n * \'endArray\'\n * \'mapKey\'\n * \'null\'\n * \'boolean\'\n * \'integer\'\n * \'double\'\n * \'number\'\n * \'string\'\n\n## License\n\nModified BSD Lincense.\nSee [\'LICENSE\' file](http://github.com/vibornoff/node-yajl/blob/master/LICENSE)\nfor details.\n',
+47 silly resolved     readmeFilename: 'README.md',
+47 silly resolved     _id: 'yajl@0.8.1',
+47 silly resolved     _from: 'yajl@' } ]
+48 info install yajl@0.8.1 into /home/anca/WebstormProjects/twitterbot
+49 info installOne yajl@0.8.1
+50 verbose from cache /home/anca/.npm/yajl/0.8.1/package/package.json
+51 info /home/anca/WebstormProjects/twitterbot/node_modules/yajl unbuild
+52 verbose read json /home/anca/WebstormProjects/twitterbot/node_modules/yajl/package.json
+53 verbose tar unpack /home/anca/.npm/yajl/0.8.1/package.tgz
+54 silly lockFile bca01ef8-cts-twitterbot-node-modules-yajl /home/anca/WebstormProjects/twitterbot/node_modules/yajl
+55 verbose lock /home/anca/WebstormProjects/twitterbot/node_modules/yajl /home/anca/.npm/bca01ef8-cts-twitterbot-node-modules-yajl.lock
+56 silly lockFile 19d22281--anca-npm-yajl-0-8-1-package-tgz /home/anca/.npm/yajl/0.8.1/package.tgz
+57 verbose lock /home/anca/.npm/yajl/0.8.1/package.tgz /home/anca/.npm/19d22281--anca-npm-yajl-0-8-1-package-tgz.lock
+58 silly gunzTarPerm modes [ '755', '644' ]
+59 silly gunzTarPerm extractEntry package.json
+60 silly gunzTarPerm extractEntry .npmignore
+61 silly gunzTarPerm extractEntry README.md
+62 silly gunzTarPerm extractEntry LICENSE
+63 silly gunzTarPerm extractEntry test.js
+64 silly gunzTarPerm extractEntry yajl.js
+65 silly gunzTarPerm extractEntry binding.gyp
+66 silly gunzTarPerm extractEntry test2.json
+67 silly gunzTarPerm extractEntry src/handle.cc
+68 silly gunzTarPerm extractEntry src/yajl.cc
+69 silly gunzTarPerm extractEntry src/handle.hh
+70 silly gunzTarPerm extractEntry test1.json
+71 silly gunzTarPerm extractEntry wscript
+72 verbose read json /home/anca/WebstormProjects/twitterbot/node_modules/yajl/package.json
+73 silly lockFile bca01ef8-cts-twitterbot-node-modules-yajl /home/anca/WebstormProjects/twitterbot/node_modules/yajl
+74 silly lockFile bca01ef8-cts-twitterbot-node-modules-yajl /home/anca/WebstormProjects/twitterbot/node_modules/yajl
+75 silly lockFile 19d22281--anca-npm-yajl-0-8-1-package-tgz /home/anca/.npm/yajl/0.8.1/package.tgz
+76 silly lockFile 19d22281--anca-npm-yajl-0-8-1-package-tgz /home/anca/.npm/yajl/0.8.1/package.tgz
+77 info preinstall yajl@0.8.1
+78 verbose from cache /home/anca/WebstormProjects/twitterbot/node_modules/yajl/package.json
+79 verbose readDependencies using package.json deps
+80 verbose from cache /home/anca/WebstormProjects/twitterbot/node_modules/yajl/package.json
+81 verbose readDependencies using package.json deps
+82 silly resolved []
+83 verbose about to build /home/anca/WebstormProjects/twitterbot/node_modules/yajl
+84 info build /home/anca/WebstormProjects/twitterbot/node_modules/yajl
+85 verbose from cache /home/anca/WebstormProjects/twitterbot/node_modules/yajl/package.json
+86 verbose linkStuff [ false,
+86 verbose linkStuff   false,
+86 verbose linkStuff   false,
+86 verbose linkStuff   '/home/anca/WebstormProjects/twitterbot/node_modules' ]
+87 info linkStuff yajl@0.8.1
+88 verbose linkBins yajl@0.8.1
+89 verbose linkMans yajl@0.8.1
+90 verbose rebuildBundles yajl@0.8.1
+91 info install yajl@0.8.1
+92 verbose unsafe-perm in lifecycle true
+93 silly exec sh "-c" "node-gyp rebuild"
+94 silly sh,-c,node-gyp rebuild,/home/anca/WebstormProjects/twitterbot/node_modules/yajl spawning
+95 info yajl@0.8.1 Failed to exec install script
+96 info /home/anca/WebstormProjects/twitterbot/node_modules/yajl unbuild
+97 verbose from cache /home/anca/WebstormProjects/twitterbot/node_modules/yajl/package.json
+98 info preuninstall yajl@0.8.1
+99 info uninstall yajl@0.8.1
+100 verbose true,/home/anca/WebstormProjects/twitterbot/node_modules,/home/anca/WebstormProjects/twitterbot/node_modules unbuild yajl@0.8.1
+101 info postuninstall yajl@0.8.1
+102 error yajl@0.8.1 install: `node-gyp rebuild`
+102 error `sh "-c" "node-gyp rebuild"` failed with 1
+103 error Failed at the yajl@0.8.1 install script.
+103 error This is most likely a problem with the yajl package,
+103 error not with npm itself.
+103 error Tell the author that this fails on your system:
+103 error     node-gyp rebuild
+103 error You can get their info via:
+103 error     npm owner ls yajl
+103 error There is likely additional logging output above.
+104 error System Linux 3.2.0-32-generic
+105 error command "/home/anca/bin/node" "/home/anca/bin/npm" "install" "yajl"
+106 error cwd /home/anca/WebstormProjects/twitterbot
+107 error node -v v0.8.21
+108 error npm -v 1.2.11
+109 error code ELIFECYCLE
+110 verbose exit [ 1, true ]

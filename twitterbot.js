@@ -1,10 +1,7 @@
-var https = require('https');
-var	qs = require('qs');
 var	request = require('request');
 var	JSONStream = require('JSONStream');
 var	OAuth = require('oauth');
 var	neo4j= require('neo4j');
-var	es = require('event-stream');
 var async = require('async');
 var	keys = require('./keys.js');
 
@@ -55,101 +52,56 @@ function makeRequest(path, params) {
 
             async.waterfall([
                 function(callback){
-                    neodb.getIndexedNode("User", "screen_name", entry.user.screen_name, function(err,usernode){
+									var node = neodb.createNode({id_str:entry.user.id_str, name:entry.user.name, screen_name:entry.user.screen_name});
+									insertOrUpdate(node, "User","screen_name", entry.user.screen_name, function(err, user){
+										callback(err, user);
 
-                        if(usernode) {
-                            console.log("USER EXITS: ", usernode.data.screen_name);
-                            callback(null, usernode);
-                        } else {
-                            console.log("USER NOT EXIT: ", entry.user.screen_name);
-                            var user = neodb.createNode({id_str:entry.user.id_str, name:entry.user.name,screen_name:entry.user.screen_name});
-                            user.save(function (err, node) {
-                                if (err) callback(err);
-                                else {
-                                    node.index("User", "screen_name", entry.user.screen_name);
-                                    console.log(" CREATED USER: ", node.data.screen_name);
-                                    callback(null, node);
-                                }
-                            });
-                        }
-
-                    });
+									});
                 },
 
                 function(user, callback){
-                    neodb.getIndexedNode("Tweet", "id_str", entry.id_str, function(err, tweetnode){
-                        if(tweetnode){
-                            console.log("TWEET EXITS: ", tweetnode.data.id_str);
-                            callback(null, user, tweetnode);
-                        } else {
-                            console.log("TWEET DOES NOT EXIST: ", entry.id_str);
-                            var tweet = neodb.createNode({id_str: entry.id_str, text: entry.text, retweet_count:entry.retweet_count, favorite_count:entry.favorite_count});
-                            tweet.save(function (err, node) {
-                                if (err)  callback(err);
-                                else {
-                                    node.index("Tweet", "id_str", entry.id_str);
-                                    console.log("CREATED TWEET ", node.data.id_str );
-                                    user.createRelationshipTo(node, "tweets", function(err, rel){
-                                        if(err) callback(err);
-                                        console.log("CREATED REL: "+ user.data.screen_name + " "+ rel.type+" "+ node.data.id_str);
-                                        callback(null, user, node);
-                                    });
+                    var node = neodb.createNode({id_str: entry.id_str, text: entry.text, retweet_count:entry.retweet_count, favorite_count:entry.favorite_count});
+									  insertOrUpdate(node, "Tweet", "id_str", entry.id_str, function(err, tweet){
+											user.createRelationshipTo(tweet, "tweets", function(err, rel){
+												if(err) callback(err);
 
-                                }
-                            });
+												console.log("CREATED REL: "+ user.data.screen_name + " "+ rel.type+" "+ node.data.id_str);
+												callback(null, user, node);
+											});
 
-                        }
-
-                    });
-
+										});
                 },
 
                 function(user, tweet, callback){
-                    console.log("LOOKING AT HASHTAGS");
                     if(entry.entities.hashtags.length>0){
                         console.log("HASHTAGS: ", entry.entities.hashtags);
-                        async.forEach(entry.entities.hashtags, function(ht, cb){
-                            neodb.getIndexedNode("Hashtag", "text", ht.text, function(err,hashtagnode){
-                                console.log("HASHTAG ", ht.text);
 
-                                if(hashtagnode){
-                                    console.log("HASHTAG EXISTS ", hashtagnode.data.text);
-                                    tweet.getRelationshipNodes({type: 'has_hashtag', direction: 'out'}, function(err, result){
-                                        if(result.indexOf(hashtagnode)!=-1){
-                                            console.log("TWEET "+ tweet.data.id_str+" CONTAINS " + hashtagnode.data.text);
-                                            cb();
-                                        } else {
-                                            console.log("TWEET "+ tweet.data.id_str+" DOESN'T CONTAIN " + hashtagnode.data.text);
-                                            tweet.createRelationshipTo(hashtagnode, "has_hashtag", function(err, rel){
-                                                if(err) cb(err);
-                                                console.log("CREATED REL: "+ tweet.data.id_str+" "+ rel.type +" "+ hashtagnode.data.text);
-                                                cb();
-                                            });
-                                        }
-                                    });
-                                } else {
-                                    console.log("HASHTAG DOESN'T EXISTS ", ht.text);
-                                    var hashtag = neodb.createNode({text: ht.text});
-                                    hashtag.save(function (err, node) {
-                                        if (err) cb(err);
-                                        else {
-                                            console.log("CREATED HASHTAG "+ node.data.text);
-                                            node.index("Hashtag", "text", ht.text);
-                                            tweet.createRelationshipTo(node, "has_hashtag", function(err, rel){
-                                                if(err) cb(err);
-                                                console.log("CREATED REL: "+ tweet.data.id_str+" "+ rel.type +" "+ node.data.text);
-                                                cb();
-                                            })
-                                        }
-                                    });
-                                }
-                            });
+												async.forEach(entry.entities.hashtags, function(ht, cb){
+
+													var node = neodb.createNode({text: ht.text});
+													insertOrUpdate(node, "Hashtag", "text", ht.text, function(err, hashtag){
+
+														tweet.getRelationshipNodes({type: 'has_hashtag', direction: 'out'}, function(err, result){
+															if(result.indexOf(hashtag)!=-1){
+																console.log("TWEET "+ tweet.data.id_str+" CONTAINS " + hashtag.data.text);
+																cb();
+															} else {
+																console.log("TWEET "+ tweet.data.id_str+" DOESN'T CONTAIN " + hashtag.data.text);
+																tweet.createRelationshipTo(hashtag, "has_hashtag", function(err, rel){
+																	if(err) cb(err);
+																	console.log("CREATED REL: "+ tweet.data.id_str+" "+ rel.type +" "+ hashtag.data.text);
+																	cb();
+																});
+															}
+														});
+
+													});
                         }, function(err){
-                            if(err) {callback(err);}
-                            callback(null, user, tweet);
+                            callback(err, user, tweet);
                         });
-                    }
-                    else callback(null, user, tweet);
+                    } else {
+											callback(null, user, tweet);
+										}
                 },
 
                 function(user, tweet, callback){
@@ -207,7 +159,7 @@ function makeRequest(path, params) {
                                                 console.log(err);
                                                 callback(err);
                                             } else {
-                                                replytouser.index("User", "screen_name", entry.in_reply_to_screen_name);
+                                                replytouser.index("User", "screen_name", entry.in_reply_to_screen_name, false);
                                                 console.log(" CREATED USER: ", replytouser.data.screen_name);
                                                 var replytweet = neodb.createNode({id_str: entry.in_reply_to_status_id_str});
                                                 replytweet.save(function (err, replytweet) {
@@ -215,7 +167,7 @@ function makeRequest(path, params) {
                                                         console.log(err);
                                                         callback(err);
                                                     } else {
-                                                        replytweet.index("Tweet", "id_str", entry.in_reply_to_status_id_str);
+                                                        replytweet.index("Tweet", "id_str", entry.in_reply_to_status_id_str, false);
                                                         console.log("CREATED IN REPLY TO TWEET ", replytweet.data.id_str );
                                                         replytouser.createRelationshipTo(replytweet, "tweets", function(err, rel){
                                                             if(err) callback(err);
@@ -274,7 +226,7 @@ function makeRequest(path, params) {
                                         if (err) cb(err);
                                         else {
                                             console.log("CREATED MENTIONED "+ mentioned.data.screen_name);
-                                            mentioned.index("User", "screen_name", mentioned.screen_name);
+                                            mentioned.index("User", "screen_name", mentioned.screen_name, false);
                                             tweet.createRelationshipTo(mentioned, "mentions", function(err, rel){
                                                 if(err) cb(err);
                                                 console.log("CREATED REL: "+ user.data.screen_name+" "+ rel.type +" "+ mentioned.data.screen_name);
@@ -311,4 +263,29 @@ function makeRequest(path, params) {
 }
 
 getBearerToken();
+
+function insertOrUpdate(node, type, indexkey, indexvalue, callback){
+	neodb.getIndexedNode(type, indexkey, indexvalue, function(err,result){
+
+		if(result) {
+			console.log(type+" EXITS: ", result.data[indexkey]);
+			callback(null, result);
+		} else {
+			console.log(type+" DOES NOT EXIT: ", indexkey,": ", indexvalue);
+
+			node.save(function (err, saved) {
+				if (err) {
+					callback(err);
+				}	else {
+					console.log("CREATED " +type+" : ", indexkey,": ", indexvalue);
+					saved.index("User", "screen_name", indexvalue, false);
+					callback(null, saved);
+				}
+			});
+		}
+
+	});
+
+
+}
 

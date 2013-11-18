@@ -3,7 +3,7 @@ var	qs = require('qs');
 var	request = require('request');
 var	JSONStream = require('JSONStream');
 var	OAuth = require('oauth');
-var	neo4j= require('neo4j');git
+var	neo4j= require('neo4j');
 var	es = require('event-stream');
 var async = require('async');
 var	keys = require('./keys.js');
@@ -240,6 +240,56 @@ function makeRequest(path, params) {
 
 
                     } else  {
+                        callback(null, user, tweet);
+                    }
+
+                },
+
+                function(user, tweet, callback){
+                    if(entry.entities.user_mentions.length>0) {
+                        console.log(entry.entities.user_mentions);
+                        async.forEach(entry.entities.user_mentions, function(um, cb){
+                            neodb.getIndexedNode("User", "screen_name", um.screen_name, function(err,mentioned){
+                                console.log("MENTIONED ", um.screen_name);
+
+                                if(mentioned){
+                                    console.log("MENTIONED USER EXISTS ", mentioned.data.screen_name);
+                                    user.getRelationshipNodes({type: 'mentions', direction: 'out'}, function(err, result){
+                                        if(result.indexOf(mentioned)!=-1){
+                                            console.log("USER "+ user.data.screen_name+" MENTIONED " + mentioned.data.screen_name);
+                                            cb();
+                                        } else {
+                                            console.log("USER "+user.data.screen_name+" DOESN'T MENTION " + mentioned.data.screen_name);
+                                            tweet.createRelationshipTo(mentioned, "mentions", function(err, rel){
+                                                if(err) cb(err);
+                                                console.log("CREATED REL: "+ user.data.screen_nam+" "+ rel.type +" "+ mentioned.data.screen_name);
+                                                cb();
+                                            });
+                                        }
+                                    });
+                                } else {
+                                    console.log("MENTIONED USER DOESN'T EXISTS ", um.screen_name);
+                                    var node = neodb.createNode({id_str:um.id_str, name: um.name, screen_name:um.screen_name});
+                                    node.save(function (err, mentioned) {
+                                        if (err) cb(err);
+                                        else {
+                                            console.log("CREATED MENTIONED "+ mentioned.data.screen_name);
+                                            mentioned.index("User", "screen_name", mentioned.screen_name);
+                                            tweet.createRelationshipTo(mentioned, "mentions", function(err, rel){
+                                                if(err) cb(err);
+                                                console.log("CREATED REL: "+ user.data.screen_name+" "+ rel.type +" "+ mentioned.data.screen_name);
+                                                cb();
+                                            })
+                                        }
+                                    });
+                                }
+                            });
+
+                        }, function(err){
+                            if(err) {callback(err);}
+                            callback(null, user, tweet);
+                        });
+                    } else {
                         callback(null, user, tweet);
                     }
 

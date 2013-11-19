@@ -4,7 +4,10 @@
     "version":"0.0.1",
     "private":true,
     "dependencies":{
-        "https": "*",
-        "oauth": "*"
+        "oauth": "*",
+				"request": "*",
+				"JSONStream": "*",
+				"neo4j": "*",
+				"async":"*"
     }
 }

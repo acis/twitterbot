@@ -26,6 +26,7 @@ function getTweets(){
 	///think up a smart algorithm for traversing tweets and make requests
 	var path='/1.1/statuses/user_timeline.json?';
 	var params={screen_name:'ConanOBrien', count:3};
+    //var params={screen_name:"aic_64", count:3};
 	makeRequest(path, params);
 
 }
@@ -47,8 +48,9 @@ function makeRequest(path, params) {
 	stream.on('root', function(obj){
 
 		async.eachSeries(obj, function(entry, entrycallback){
-			console.log("ENTRY:",entry);
-			console.log("\n\n\n");
+			console.log("\n\n\nENTRY:",entry);
+            console.log("\n\n");
+
 
 			async.waterfall([
 				function(callback){
@@ -62,13 +64,9 @@ function makeRequest(path, params) {
 				function(user, callback){
 					var node = neodb.createNode({id_str: entry.id_str, text: entry.text, retweet_count:entry.retweet_count, favorite_count:entry.favorite_count});
 					insertOrUpdate(node, "Tweet", "id_str", entry.id_str, function(err, tweet){
-						user.createRelationshipTo(tweet, "tweets", function(err, rel){
-							if(err) callback(err);
-
-							console.log("CREATED REL: "+ user.data.screen_name + " "+ rel.type+" "+ node.data.id_str);
-							callback(null, user, node);
-						});
-
+						createRelationship(user, tweet, "tweets", function(err){
+                            callback(err, user, tweet);
+                        });
 					});
 				},
 
@@ -155,10 +153,29 @@ function makeRequest(path, params) {
 getBearerToken();
 
 function insertOrUpdate(node, type, indexkey, indexvalue, callback){
-	neodb.getIndexedNode(type, indexkey, indexvalue, function(err,result){
+    neodb.getIndexedNode(type, indexkey, indexvalue, function(err,result){
 		if(result) {
 			console.log(type+" EXITS: ", result.data[indexkey]);
-			callback(null, result);
+            var modified=false;
+            for (var i in node.data){
+                if(!result.data[i] || result.data[i]!=node.data[i]){
+                  console.log("ADDING OR UPDATING PROPERTY", i );
+                  console.log("FROM ",result.data[i], "TO", node.data[i] );
+                  result.data[i]=node.data[i];
+                  modified=true;
+                }
+            }
+            if(modified){
+                result.save(function (err, saved) {
+                    if (err) {
+                        callback(err);
+                    }	else {
+                        console.log("UPDATED " +type+" : ", indexkey,": ", indexvalue);
+                        saved.index(type, indexkey, indexvalue, false);
+                        callback(null, saved);
+                    }
+                });
+            } else callback(null, result);
 		} else {
 			console.log(type+" DOES NOT EXIT: ", indexkey,": ", indexvalue);
 
@@ -172,19 +189,19 @@ function insertOrUpdate(node, type, indexkey, indexvalue, callback){
 				}
 			});
 		}
-
 	});
 }
 
 function createRelationship(from, to, type, callback){
-	from.getRelationshipNodes({type: type, direction: 'out'}, function(err, result){
-		if(result && result.indexOf(to)!=-1){
-			console.log("REL EXISTS "+ from.data+"-"+type+"->"+to.data);
+	from.path(to, type, 'out',1,'shortestPath', function(err, result){
+
+		if(result){
+			console.log("REL EXISTS ", from.data, type, to.data);
 			callback(err);
 		} else {
-			console.log("REL DOESN'T EXIST "+ from.data+"-"+type+"->"+to.data);
+			console.log("REL DOESN'T EXIST ", from.data, type, to.data);
 			from.createRelationshipTo(to, type, function(err, rel){
-				console.log("REL CREATED "+ from.data+"-"+type+"->"+to.data);
+				console.log("REL CREATED ");
 				callback(err);
 			});
 		}

@@ -5,9 +5,9 @@
     "private":true,
     "dependencies":{
         "oauth": "*",
-				"request": "*",
-				"JSONStream": "*",
-				"neo4j": "*",
-				"async":"*"
+		"request": "*",
+		"JSONStream": "*",
+		"neo4j": "*",
+		"async":"*"
     }
 }

@@ -15,9 +15,9 @@ function getBearerToken(){
 	var OAuth2 = OAuth.OAuth2;
 	var oauth2 = new OAuth2(keys.consumer_key, keys.consumer_secret, 'https://api.twitter.com/', null, 'oauth2/token', null);
 	oauth2.getOAuthAccessToken('', {'grant_type': 'client_credentials'}, function(e, access_token, refresh_token, results) {
-				bearerToken = access_token;
-				getTweets();
-			}
+			bearerToken = access_token;
+			getTweets();
+		}
 	);
 }
 
@@ -26,7 +26,7 @@ function getTweets(){
 	///think up a smart algorithm for traversing tweets and make requests
 	var path='/1.1/statuses/user_timeline.json?';
 	var params={screen_name:'ConanOBrien', count:3};
-    //var params={screen_name:"aic_64", count:3};
+	//var params={screen_name:"aic_64", count:3};
 	makeRequest(path, params);
 
 }
@@ -49,7 +49,7 @@ function makeRequest(path, params) {
 
 		async.eachSeries(obj, function(entry, entrycallback){
 			console.log("\n\n\nENTRY:",entry);
-            console.log("\n\n");
+			console.log("\n\n");
 
 
 			async.waterfall([
@@ -65,8 +65,8 @@ function makeRequest(path, params) {
 					var node = neodb.createNode({id_str: entry.id_str, text: entry.text, retweet_count:entry.retweet_count, favorite_count:entry.favorite_count});
 					insertOrUpdate(node, "Tweet", "id_str", entry.id_str, function(err, tweet){
 						createRelationship(user, tweet, "tweets", function(err){
-                            callback(err, user, tweet);
-                        });
+							callback(err, user, tweet);
+						});
 					});
 				},
 
@@ -153,29 +153,29 @@ function makeRequest(path, params) {
 getBearerToken();
 
 function insertOrUpdate(node, type, indexkey, indexvalue, callback){
-    neodb.getIndexedNode(type, indexkey, indexvalue, function(err,result){
+	neodb.getIndexedNode(type, indexkey, indexvalue, function(err,result){
 		if(result) {
 			console.log(type+" EXITS: ", result.data[indexkey]);
-            var modified=false;
-            for (var i in node.data){
-                if(!result.data[i] || result.data[i]!=node.data[i]){
-                  console.log("ADDING OR UPDATING PROPERTY", i );
-                  console.log("FROM ",result.data[i], "TO", node.data[i] );
-                  result.data[i]=node.data[i];
-                  modified=true;
-                }
-            }
-            if(modified){
-                result.save(function (err, saved) {
-                    if (err) {
-                        callback(err);
-                    }	else {
-                        console.log("UPDATED " +type+" : ", indexkey,": ", indexvalue);
-                        saved.index(type, indexkey, indexvalue, false);
-                        callback(null, saved);
-                    }
-                });
-            } else callback(null, result);
+			var modified=false;
+			for (var i in node.data){
+				if(!result.data[i] || result.data[i]!=node.data[i]){
+					console.log("ADDING OR UPDATING PROPERTY", i );
+					console.log("FROM ",result.data[i], "TO", node.data[i] );
+					result.data[i]=node.data[i];
+					modified=true;
+				}
+			}
+			if(modified){
+				result.save(function (err, saved) {
+					if (err) {
+						callback(err);
+					}	else {
+						console.log("UPDATED " +type+" : ", indexkey,": ", indexvalue);
+						saved.index(type, indexkey, indexvalue, false);
+						callback(null, saved);
+					}
+				});
+			} else callback(null, result);
 		} else {
 			console.log(type+" DOES NOT EXIT: ", indexkey,": ", indexvalue);
 

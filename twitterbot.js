@@ -7,7 +7,8 @@ var	keys = require('./keys.js');
 
 
 var neodb = new neo4j.GraphDatabase('http://localhost:7474');
-var stream = JSONStream.parse();
+var userArray = ['SarahBrownUK', 'denverfoodguy', 'BrianBrownNet', 'RichardPBacon', 'eddieizzard', 'stephenfry', 'umairh', 'rustyrockets', 'tinchystryder', 'HilaryAlexander', 'Zee', 'jemimakiss', 'RichardDawkins' ];
+
 var bearerToken;
 
 
@@ -16,25 +17,37 @@ function getBearerToken(){
 	var oauth2 = new OAuth2(keys.consumer_key, keys.consumer_secret, 'https://api.twitter.com/', null, 'oauth2/token', null);
 	oauth2.getOAuthAccessToken('', {'grant_type': 'client_credentials'}, function(e, access_token, refresh_token, results) {
 			bearerToken = access_token;
-			getTweets();
+			getData();
 		}
 	);
 }
 
-function getTweets(){
-
-	///think up a smart algorithm for traversing tweets and make requests
+function getData(){
 	var path='/1.1/statuses/user_timeline.json?';
-	var params={screen_name:'ConanOBrien', count:3};
-	//var params={screen_name:"aic_64", count:3};
-	makeRequest(path, params);
+
+	async.forever(function(next){
+		user = userArray.shift();
+		console.log(user);
+
+		var params={screen_name:user, count:200};
+
+		if()
+
+		makeRequest(path, params, function(){
+			userArray.push(user);
+			setImmediate(next);
+		});
+
+	}, function(err){
+		console.log(err);
+	});
 
 }
 
 
 
-function makeRequest(path, params) {
-
+function makeRequest(path, params, reqcallback) {
+	var stream = JSONStream.parse();
 	var options ={
 		url: "https://api.twitter.com"+path,
 		qs: params,
@@ -46,9 +59,8 @@ function makeRequest(path, params) {
 
 	request(options).pipe(stream);
 	stream.on('root', function(obj){
-
 		async.eachSeries(obj, function(entry, entrycallback){
-			console.log("\n\n\nENTRY:",entry);
+			//console.log("\n\n\nENTRY:",entry);
 			console.log("\n\n");
 
 
@@ -72,8 +84,6 @@ function makeRequest(path, params) {
 
 				function(user, tweet, callback){
 					if(entry.entities.hashtags.length>0){
-						console.log("HASHTAGS: ", entry.entities.hashtags);
-
 						async.forEach(entry.entities.hashtags, function(ht, cb){
 
 							var node = neodb.createNode({text: ht.text});
@@ -97,6 +107,9 @@ function makeRequest(path, params) {
 						insertOrUpdate(node, "User", "screen_name",entry.in_reply_to_screen_name, function(err, replyuser){
 							if(err) callback(err);
 							var node = neodb.createNode({id_str: entry.in_reply_to_status_id_str});
+							if(userArray.indexOf(entry.in_reply_to_screen_name)==-1){
+								userArray.push(entry.in_reply_to_screen_name);
+							}
 							insertOrUpdate(node, "Tweet", "id_str", entry.in_reply_to_status_id_str, function(err, replytweet){
 								if(err) callback(err);
 								createRelationship(replyuser, replytweet, "tweets", function(err){
@@ -116,10 +129,12 @@ function makeRequest(path, params) {
 
 				function(user, tweet, callback){
 					if(entry.entities.user_mentions.length>0) {
-						console.log(entry.entities.user_mentions);
 						async.forEach(entry.entities.user_mentions, function(um, cb){
 							var node = neodb.createNode({id_str:um.id_str, name: um.name, screen_name:um.screen_name});
 							insertOrUpdate(node, "User", "screen_name",um.screen_name, function(err, mentioned){
+								if(userArray.indexOf(um.screen_name)==-1){
+									userArray.push(um.screen_name);
+								}
 								createRelationship(tweet, mentioned, "mentions", function(err){
 									cb(err);
 								})
@@ -142,10 +157,11 @@ function makeRequest(path, params) {
 
 		}, function(err){
 			if(err) console.log("ERROR: "+ err);
+			reqcallback();
 		});
-
-
 	});
+
+
 
 
 }
@@ -159,8 +175,8 @@ function insertOrUpdate(node, type, indexkey, indexvalue, callback){
 			var modified=false;
 			for (var i in node.data){
 				if(!result.data[i] || result.data[i]!=node.data[i]){
-					console.log("ADDING OR UPDATING PROPERTY", i );
-					console.log("FROM ",result.data[i], "TO", node.data[i] );
+				//	console.log("ADDING OR UPDATING PROPERTY", i );
+				//	console.log("FROM ",result.data[i], "TO", node.data[i] );
 					result.data[i]=node.data[i];
 					modified=true;
 				}
@@ -170,14 +186,14 @@ function insertOrUpdate(node, type, indexkey, indexvalue, callback){
 					if (err) {
 						callback(err);
 					}	else {
-						console.log("UPDATED " +type+" : ", indexkey,": ", indexvalue);
+					//	console.log("UPDATED " +type+" : ", indexkey,": ", indexvalue);
 						saved.index(type, indexkey, indexvalue, false);
 						callback(null, saved);
 					}
 				});
 			} else callback(null, result);
 		} else {
-			console.log(type+" DOES NOT EXIT: ", indexkey,": ", indexvalue);
+			//console.log(type+" DOES NOT EXIT: ", indexkey,": ", indexvalue);
 
 			node.save(function (err, saved) {
 				if (err) {
@@ -196,10 +212,10 @@ function createRelationship(from, to, type, callback){
 	from.path(to, type, 'out',1,'shortestPath', function(err, result){
 
 		if(result){
-			console.log("REL EXISTS ", from.data, type, to.data);
+			console.log("REL EXISTS ", type);
 			callback(err);
 		} else {
-			console.log("REL DOESN'T EXIST ", from.data, type, to.data);
+			console.log("REL DOESN'T EXIST ", type);
 			from.createRelationshipTo(to, type, function(err, rel){
 				console.log("REL CREATED ");
 				callback(err);

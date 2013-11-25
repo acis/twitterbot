@@ -8,7 +8,7 @@ var	keys = require('./keys.js');
 
 var neodb = new neo4j.GraphDatabase('http://localhost:7474');
 var userArray = ['SarahBrownUK', 'denverfoodguy', 'BrianBrownNet', 'RichardPBacon', 'eddieizzard', 'stephenfry', 'umairh', 'rustyrockets', 'tinchystryder', 'HilaryAlexander', 'Zee', 'jemimakiss', 'RichardDawkins' ];
-
+var req_count=0;
 var bearerToken;
 
 
@@ -30,8 +30,6 @@ function getData(){
 		console.log(user);
 
 		var params={screen_name:user, count:200};
-
-		if()
 
 		makeRequest(path, params, function(){
 			userArray.push(user);

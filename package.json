@@ -8,6 +8,8 @@
 		"request": "*",
 		"JSONStream": "*",
 		"neo4j": "*",
-		"async":"*"
+		"async":"*",
+	    "mysql":"*",
+	    "datejs": "*"
     }
 }

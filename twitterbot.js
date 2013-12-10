@@ -35,7 +35,7 @@ function init(){
 	oauth2.getOAuthAccessToken('', {'grant_type': 'client_credentials'}, function(e, access_token, refresh_token, results) {
 			bearerToken = access_token;
 			var userArray =[];
-			mysqlConn.query('SELECT screen_name FROM users;', function(err, result) {
+			mysqlConn.query('SELECT screen_name FROM users order by created_at asc;', function(err, result) {
 				if(err) console.log(err);
 
 				result.forEach(function(user){
@@ -254,10 +254,10 @@ function insertOrUpdate(node, type, indexkey, indexvalue, callback){
 				} else {
 					saved.index(type, indexkey, indexvalue, false);
 					if(type=="User"){
-						var query = mysqlConn.query('INSERT INTO users SET ?;', node.data, function(err, result) {
+						/*var query = mysqlConn.query('INSERT INTO users SET ?;', node.data, function(err, result) {
 							if(err) console.log(err);
 						});
-						console.log(query.sql);
+						console.log(query.sql); */
 					}
 					callback(null, saved);
 				}

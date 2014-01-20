@@ -1,4 +1,5 @@
 keys.js
+twitterbot.js
 .idea/*
 ./idea/.*
 node-modules/

@@ -3,70 +3,35 @@ var	JSONStream = require('JSONStream');
 var	OAuth = require('oauth');
 var	neo4j= require('neo4j');
 var async = require('async');
-var mysql = require('mysql');
-var datejs = require('datejs');
 var	keys = require('./keys.js');
 
 
-
-//var userArray = ['SarahBrownUK', 'denverfoodguy', 'BrianBrownNet', 'RichardPBacon', 'eddieizzard', 'stephenfry', 'umairh', 'rustyrockets', 'tinchystryder', 'HilaryAlexander', 'Zee', 'jemimakiss', 'RichardDawkins' ];
-var neodb;
-var mysqlConn;
+var neodb = new neo4j.GraphDatabase('http://localhost:7474');
+var userArray = ['SarahBrownUK', 'denverfoodguy', 'BrianBrownNet', 'RichardPBacon', 'eddieizzard', 'stephenfry', 'umairh', 'rustyrockets', 'tinchystryder', 'HilaryAlexander', 'Zee', 'jemimakiss', 'RichardDawkins' ];
+var req_count=0;
 var bearerToken;
-var sql = "UPDATE users SET name = ?, description = ?, created_at = ?, location=?, profile_image_url=?, profile_image_url_https=?, url=?, listed_count=?, favourites_count=?, followers_count=?, statuses_count= ?,friends_count = ? where id_str= ?";
-var userFields = ["name","description", "created_at", "location","profile_image_url","profile_image_url_https","url","listed_count","favourites_count", "followers_count", "statuses_count","friends_count"];
 
 
-
-function init(){
-
-	neodb = new neo4j.GraphDatabase('http://localhost:7474');
-
-	mysqlConn = mysql.createConnection({
-		host     : keys.mysql_host,
-		database : keys.mysql_db,
-		user     : keys.mysql_username,
-		password : keys.mysql_pwd
-	});
-	mysqlConn.connect();
-
+function getBearerToken(){
 	var OAuth2 = OAuth.OAuth2;
 	var oauth2 = new OAuth2(keys.consumer_key, keys.consumer_secret, 'https://api.twitter.com/', null, 'oauth2/token', null);
 	oauth2.getOAuthAccessToken('', {'grant_type': 'client_credentials'}, function(e, access_token, refresh_token, results) {
 			bearerToken = access_token;
-			var userArray =[];
-			mysqlConn.query('SELECT screen_name FROM users;', function(err, result) {
-				if(err) console.log(err);
-
-				result.forEach(function(user){
-					userArray.push(user.screen_name);
-				});
-				getData(userArray);
-			});
-
-
+			getData();
 		}
 	);
 }
 
-function getData(userArray){
+function getData(){
+	var path='/1.1/statuses/user_timeline.json?';
 
 	async.forever(function(next){
-		var user = userArray.shift();
-		console.log(user);
-		mysqlConn.query('SELECT created_at FROM users WHERE screen_name=?', user, function(err, result) {
-			if(err) console.log(err);
-			if(result[0].created_at == null) {
-				getUserInfo({screen_name:user, include_entities:false}, function(err){
-					if(err) console.log(err);
-
-				});
-			}
-		});
-
+		user = userArray.shift();
 		console.log(user);
 
-		getTweets({screen_name:user, count:200}, function(){
+		var params={screen_name:user, count:200};
+
+		makeRequest(path, params, function(){
 			userArray.push(user);
 			setImmediate(next);
 		});
@@ -77,40 +42,12 @@ function getData(userArray){
 
 }
 
-function getUserInfo(params, callback){
+
+
+function makeRequest(path, params, reqcallback) {
 	var stream = JSONStream.parse();
 	var options ={
-		url: "https://api.twitter.com/1.1/users/show.json?",
-		qs: params,
-		headers: {
-			'User-Agent': 'AIC Data Mining',
-			Authorization: "Bearer " + bearerToken
-		}
-	};
-	request(options).pipe(stream);
-	stream.on('root', function(obj){
-		var values=[];
-		userFields.forEach(function(field){
-			if(field === "created_at")
-				values.push(new Date(Date.parse(obj[field])));
-			else values.push(obj[field]);
-		});
-
-		values.push(obj.id_str);
-
-		mysqlConn.query(sql, values, function(err, result) {
-			if(err) console.log(err);
-		});
-
-	});
-
-}
-
-
-function getTweets(params, reqcallback) {
-	var stream = JSONStream.parse();
-	var options ={
-		url: "https://api.twitter.com/1.1/statuses/user_timeline.json?",
+		url: "https://api.twitter.com"+path,
 		qs: params,
 		headers: {
 			'User-Agent': 'AIC Data Mining',
@@ -121,19 +58,22 @@ function getTweets(params, reqcallback) {
 	request(options).pipe(stream);
 	stream.on('root', function(obj){
 		async.eachSeries(obj, function(entry, entrycallback){
+			//console.log("\n\n\nENTRY:",entry);
+			console.log("\n\n");
+
 
 			async.waterfall([
 				function(callback){
-					var node = neodb.createNode({id_str:entry.user.id_str, name: entry.user.name, screen_name:entry.user.screen_name});
+					var node = neodb.createNode({id_str:entry.user.id_str, name:entry.user.name, screen_name:entry.user.screen_name});
 					insertOrUpdate(node, "User","screen_name", entry.user.screen_name, function(err, user){
 						callback(err, user);
+
 					});
 				},
 
 				function(user, callback){
 					var node = neodb.createNode({id_str: entry.id_str, text: entry.text, retweet_count:entry.retweet_count, favorite_count:entry.favorite_count});
 					insertOrUpdate(node, "Tweet", "id_str", entry.id_str, function(err, tweet){
-
 						createRelationship(user, tweet, "tweets", function(err){
 							callback(err, user, tweet);
 						});
@@ -162,10 +102,12 @@ function getTweets(params, reqcallback) {
 					if(entry.in_reply_to_status_id){
 
 						var node = neodb.createNode({id_str:entry.in_reply_to_user_id_str, screen_name:entry.in_reply_to_screen_name});
-						insertOrUpdate(node, "User", "screen_name",entry.in_reply_to_screen_name,  function(err, replyuser){
+						insertOrUpdate(node, "User", "screen_name",entry.in_reply_to_screen_name, function(err, replyuser){
 							if(err) callback(err);
 							var node = neodb.createNode({id_str: entry.in_reply_to_status_id_str});
-
+							if(userArray.indexOf(entry.in_reply_to_screen_name)==-1){
+								userArray.push(entry.in_reply_to_screen_name);
+							}
 							insertOrUpdate(node, "Tweet", "id_str", entry.in_reply_to_status_id_str, function(err, replytweet){
 								if(err) callback(err);
 								createRelationship(replyuser, replytweet, "tweets", function(err){
@@ -187,8 +129,10 @@ function getTweets(params, reqcallback) {
 					if(entry.entities.user_mentions.length>0) {
 						async.forEach(entry.entities.user_mentions, function(um, cb){
 							var node = neodb.createNode({id_str:um.id_str, name: um.name, screen_name:um.screen_name});
-							insertOrUpdate(node, "User", "screen_name",um.screen_name,function(err, mentioned){
-
+							insertOrUpdate(node, "User", "screen_name",um.screen_name, function(err, mentioned){
+								if(userArray.indexOf(um.screen_name)==-1){
+									userArray.push(um.screen_name);
+								}
 								createRelationship(tweet, mentioned, "mentions", function(err){
 									cb(err);
 								})
@@ -220,19 +164,17 @@ function getTweets(params, reqcallback) {
 
 }
 
-
-
-//var sql = "INSERT OR UPDATE users SET id_str =?, screen_name=?, name = ?, description = ?, created_at = ?, location=?, profile_image_url=?, profile_image_url_https,url=?, listed_count=?, favourites_count=?, followers_count=?, statuses_count= ?,friends_count = ? where id_str= ?";
-//var userFields = ["id_str", "screen_name", "name","description", "created_at", "location","profile_image_url","profile_image_url_https","url","listed_count","favourites_count", "followers_count", "statuses_count","friends_count"];
-
-
+getBearerToken();
 
 function insertOrUpdate(node, type, indexkey, indexvalue, callback){
 	neodb.getIndexedNode(type, indexkey, indexvalue, function(err,result){
 		if(result) {
+			console.log(type+" EXITS: ", result.data[indexkey]);
 			var modified=false;
 			for (var i in node.data){
 				if(!result.data[i] || result.data[i]!=node.data[i]){
+				//	console.log("ADDING OR UPDATING PROPERTY", i );
+				//	console.log("FROM ",result.data[i], "TO", node.data[i] );
 					result.data[i]=node.data[i];
 					modified=true;
 				}
@@ -242,23 +184,21 @@ function insertOrUpdate(node, type, indexkey, indexvalue, callback){
 					if (err) {
 						callback(err);
 					}	else {
+					//	console.log("UPDATED " +type+" : ", indexkey,": ", indexvalue);
 						saved.index(type, indexkey, indexvalue, false);
 						callback(null, saved);
 					}
 				});
 			} else callback(null, result);
 		} else {
+			//console.log(type+" DOES NOT EXIT: ", indexkey,": ", indexvalue);
+
 			node.save(function (err, saved) {
 				if (err) {
 					callback(err);
-				} else {
+				}	else {
+					console.log("CREATED " +type+" : ", indexkey,": ", indexvalue);
 					saved.index(type, indexkey, indexvalue, false);
-					if(type=="User"){
-						var query = mysqlConn.query('INSERT INTO users SET ?;', node.data, function(err, result) {
-							if(err) console.log(err);
-						});
-						console.log(query.sql);
-					}
 					callback(null, saved);
 				}
 			});
@@ -270,19 +210,17 @@ function createRelationship(from, to, type, callback){
 	from.path(to, type, 'out',1,'shortestPath', function(err, result){
 
 		if(result){
-			//console.log("REL EXISTS ", type);
+			console.log("REL EXISTS ", type);
 			callback(err);
 		} else {
-			//console.log("REL DOESN'T EXIST ", type);
+			console.log("REL DOESN'T EXIST ", type);
 			from.createRelationshipTo(to, type, function(err, rel){
-				//console.log("REL CREATED ");
+				console.log("REL CREATED ");
 				callback(err);
 			});
 		}
 	});
 
 }
-
-init();
 
 

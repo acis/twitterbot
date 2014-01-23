@@ -14,24 +14,25 @@ module.exports = function(grunt) {
 					'level': 'ignore'
 				}
 			},
-			app: ['twitterbot.coffee']
+			app: ['*.coffee']
 		},
 		coffee: {
-			compile_twitterbot : {
-				files: {
-					'twitterbot.js': 'twitterbot.coffee'
-				}
+			compile_all : {
+				expand: true,
+				flatten: false,
+				src: ['./*.coffee'],
+				dest: './',
+				ext: '.js'
 			}
 		},
 		clean: {
 			allJavascriptFiles: [
-				'twitterbot.js',
-				'!twitterbot_old.js',
+				'twitterbot.js'
 			]
 		},
 		concurrent: {
 			development: {
-				tasks: [ 'watch'],
+				tasks: ['coffeelint','coffee', 'watch', 'nodemon'],
 				options: {
 					logConcurrentOutput: true
 				}
@@ -46,7 +47,7 @@ module.exports = function(grunt) {
 			}
 		},
 		watch: {
-			files: ['twitterbot.coffee'],
+			files: ['*.coffee'],
 			tasks: ['coffeelint',  'coffee']
 		}
 	});

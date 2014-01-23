@@ -9,7 +9,7 @@ keys = require("./keys.js")
 neodb = new neo4j.GraphDatabase("http://localhost:7474")
 
 userArray = ["petecashmore", "denverfoodguy", "BrianBrownNet","GuyKawasaki", "om", "BarackObama","NBA","jack","guardiantech", "stephenfry", "WSJ", "umairh", "rustyrockets", "tinchystryder", "HilaryAlexander", "Zee", "jemimakiss", "RichardDawkins"]
-#req_count = 0
+req_count = 0
 bearerToken = undefined
 mysqlConn = undefined
 
@@ -62,7 +62,6 @@ getData = (userArray) ->
 			count: 200, ->
 				userArray.push user
 				setImmediate next
-
 		###mysqlConn.query "SELECT since_id FROM users WHERE screen_name=?", user, (err, result) ->
 			return err if err
 			params =
@@ -121,8 +120,6 @@ getTweets = (params, reqcallback) ->
 			console.log err if err
     ###
 		async.eachSeries obj, ((entry, entrycallback) ->
-
-			console.log "\n\n"
 			async.waterfall [
 				(callback) ->
 					properties = { id_str: entry.user.id_str, name: entry.user.name	}
@@ -136,60 +133,59 @@ getTweets = (params, reqcallback) ->
 							favorite_count: entry.favorite_count
 						}
 						mergeNode "Tweet", "id_str", entry.id_str, properties, (err, tweet) ->
+							console.log entry.id_str + " " + entry.text+ "..."
 							from = { type : 'User',	idKey: 'screen_name',	idVal: userScreenName }
 							to = { type : 'Tweet', idKey: 'id_str',	idVal: entry.id_str }
 							createRelationship from, to, "tweets", (err) ->
 								callback err, userScreenName, entry.id_str
 
-				, (userScreenName, tweetIdStr, callback) ->    #TODO not saving
+				, (userScreenName, tweetIdStr, callback) ->
 						if entry.entities.hashtags.length > 0
 							async.forEach entry.entities.hashtags, ((ht, cb) ->
 								mergeNode "Hashtag", "text", ht.text, null, (err, hashtag) ->
-									from = {type: 'Tweet', idKey: 'id_str', idVal:tweetIdStr }
-									to = {type: 'Hashtag', idKey: 'text', idVal: ht.text }
-									createRelationship from, to, "has_hashtag", (err) ->
-										cb err
-							), (err) ->
+										console.log err if err
+										from = {type: 'Tweet', idKey: 'id_str', idVal:tweetIdStr }
+										to = {type: 'Hashtag', idKey: 'text', idVal: ht.text }
+										createRelationship from, to, "has_hashtag", (err) ->
+											cb err
+								), (err) ->
+									console.log err if err
+						
+						callback null, userScreenName, tweetIdStr
 
-								callback err, userScreenName, tweetIdStr
-						else
-							callback null, userScreenName, tweetIdStr
-
-				, (userScreenName, tweetIdStr, callback) ->  #TODO not saving
+				, (userScreenName, tweetIdStr, callback) ->
 						if entry.in_reply_to_status_id
 							mergeNode "User", "screen_name", entry.in_reply_to_screen_name, {id_str: entry.in_reply_to_user_id_str}, (err, replyuser) ->
-								callback err  if err
-								userArray.push entry.in_reply_to_screen_name  if userArray.indexOf(entry.in_reply_to_screen_name) is -1
+								console.log  err if err
 								mergeNode "Tweet", "id_str", entry.in_reply_to_status_id_str, null, (err, replytweet) ->
-									callback err  if err
-									query = "MATCH (tweet:Tweet { id_str:'"+tweetIdStr+"' }), (newtweet:Tweet { id_str:'"+entry.in_reply_to_user_id_str+"' }), (newuser:User { screen_name:'"+entry.in_reply_to_screen_name+"' })  "
-									query += "MERGE (tweet)-[r:in_reply_to]->(newtweet)<-[s:tweets]-(newuser)	RETURN r, s "
-									#console.log query
+									console.log err  if err
+									query = "MATCH (tweet:Tweet { id_str:'"+tweetIdStr+"' }) "
+									query += "MERGE (tweet)-[r:in_reply_to]->(newtweet:Tweet { id_str:'"+entry.in_reply_to_user_id_str+"' })<-[s:tweets]-(newuser:User { screen_name:'"+entry.in_reply_to_screen_name+"' })	RETURN r, s "
 									neodb.query query, (err, saved)->
-										#console.log err, saved
-										#callback null, saved
-									callback null, userScreenName, tweetIdStr
-						else
-							callback null, userScreenName, tweetIdStr
+										console.log err if err
+										
+						callback null, userScreenName, tweetIdStr
 
 				, (userScreenName, tweetIdStr, callback) ->
 						if entry.entities.user_mentions.length > 0
-							async.forEach entry.entities.user_mentions, ((um, cb) ->
+							async.eachSeries entry.entities.user_mentions, ((um, cb) ->
 								properties={ id_str: um.id_str, name: um.name,	screen_name: um.screen_name }
 								mergeNode 'User', 'screen_name', um.screen_name, properties, (err, mentioned) ->
-									userArray.push um.screen_name  if userArray.indexOf(um.screen_name) is -1
+									if userArray.indexOf(um.screen_name) is -1 && um.screen_name isnt userScreenName
+										insertNewUser(um.id_str, um.screen_name, (e, result) ->
+											userArray.push um.screen_name
+											console.log "NEW USER ADDED "+ um.screen_name
+										)
+									
 									from = {type: 'Tweet', idKey:'id_str', idVal:tweetIdStr  }
 									to = {type:'User', idKey:'screen_name', idVal:um.screen_name}
 									createRelationship from, to, "mentions", (err) ->
-										cb err
-
-
+										console.log err if err
+										cb
 							), (err) ->
-								callback err  if err
-								callback null, userScreenName, tweetIdStr
-
-						else
-							callback null, userScreenName, tweetIdStr
+								console.log err if err
+						
+						callback null, userScreenName, tweetIdStr
 
 			], (result, err) ->
 				entrycallback()
@@ -199,26 +195,32 @@ getTweets = (params, reqcallback) ->
 
 
 
+insertNewUser = (id_str, screen_name, callback)->
+	console.log "params "+id_str+" "+ screen_name
+	sql = mysqlConn.query 'INSERT INTO users (id_str, screen_name) values (?, ?)', [id_str, screen_name] , (err, result) ->
+		console.log err if err
+		callback err, result
+
+
 mergeNode = (label, idKey, idVal, properties, callback) ->
 	query = "MERGE (node:"+label+" {"+idKey+":'"+idVal+"'}) "
-	query += " ON CREATE SET"
-	for k,v of properties
-		query += " node."+k+"='"+v+"',"
-	query= query.slice(0, -1)
-	query += " ON MATCH SET "
-	for k,v of properties
-		query += " node."+k+"='"+v+"',"
-	query = query.slice(0, -1)
+	if properties?
+		query += " ON CREATE SET "
+		for k,v of properties
+			query += " node."+k+"='"+v+"',"
+		query= query.slice(0, -1)
+		query += " ON MATCH SET "
+		for k,v of properties
+			query += " node."+k+"='"+v+"',"
+		query = query.slice(0, -1)
 	query += " RETURN node"
-	#console.log query
 	neodb.query query, (err, saved) ->
-		callback null, saved
+		callback err, saved
 
 
 createRelationship = (from, to, type, callback) ->
 	query = "MATCH (from:"+from.type+" { "+from.idKey+":'"+from.idVal+"' }),(to:"+to.type+" { "+to.idKey+":'"+to.idVal+"' }) "
 	query += "MERGE (from)-[r:"+type+"]->(to)	RETURN r"
-	#console.log query
 	neodb.query query, (err, saved)->
 		callback null, saved
 

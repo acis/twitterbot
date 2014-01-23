@@ -8,12 +8,15 @@ datejs = require("datejs")
 keys = require("./keys.js")
 neodb = new neo4j.GraphDatabase("http://localhost:7474")
 
-userArray = ["SarahBrownUK", "denverfoodguy", "BrianBrownNet", "RichardPBacon", "eddieizzard", "stephenfry", "umairh", "rustyrockets", "tinchystryder", "HilaryAlexander", "Zee", "jemimakiss", "RichardDawkins"]
-req_count = 0
+userArray = ["petecashmore", "denverfoodguy", "BrianBrownNet","GuyKawasaki", "om", "BarackObama","NBA","jack","guardiantech", "stephenfry", "WSJ", "umairh", "rustyrockets", "tinchystryder", "HilaryAlexander", "Zee", "jemimakiss", "RichardDawkins"]
+#req_count = 0
 bearerToken = undefined
 mysqlConn = undefined
-sql = "UPDATE users SET name = ?, description = ?, created_at = ?, location=?, profile_image_url=?, profile_image_url_https=?, url=?, listed_count=?, favourites_count=?, followers_count=?, statuses_count= ?,friends_count = ? where id_str= ?"
+
+updateUserInfoQuery = "UPDATE users SET name = ?, description = ?, created_at = ?, location=?, profile_image_url=?, profile_image_url_https=?, url=?, listed_count=?, favourites_count=?, followers_count=?, statuses_count= ?,friends_count = ? where id_str= ?"
 userFields = ["name", "description", "created_at", "location", "profile_image_url", "profile_image_url_https", "url", "listed_count", "favourites_count", "followers_count", "statuses_count", "friends_count"]
+updateSinceIdQuery = "Update users set since_id=? where id_str = ?"
+
 
 
 init = ->
@@ -40,11 +43,11 @@ init = ->
 			getData userArray
 
 
-
 getData = (userArray) ->
 	async.forever ((next) ->
 		user = userArray.shift()
 		console.log user
+
 		mysqlConn.query "SELECT created_at FROM users WHERE screen_name=?", user, (err, result) ->
 			console.log err  if err
 			unless result[0].created_at?
@@ -54,15 +57,26 @@ getData = (userArray) ->
 				, (err) ->
 					console.log err  if err
 
-
-		console.log user
 		getTweets
 			screen_name: user
-			count: 200
-		, ->
-			userArray.push user
-			setImmediate next
+			count: 200, ->
+				userArray.push user
+				setImmediate next
 
+		###mysqlConn.query "SELECT since_id FROM users WHERE screen_name=?", user, (err, result) ->
+			return err if err
+			params =
+				screen_name: user
+				count: 200
+
+			if result[0].since_id?
+				params.since_id = result[0].since_id
+				console.log params
+
+			getTweets params, ->
+				userArray.push user
+				setImmediate next
+    ###
 	), (err) ->
 		console.log err
 
@@ -85,7 +99,7 @@ getUserInfo = (params, callback) ->
 				values.push obj[field]
 
 		values.push obj.id_str
-		mysqlConn.query sql, values, (err, result) ->
+		mysqlConn.query updateUserInfoQuery, values, (err, result) ->
 			console.log err  if err
 
 
@@ -99,10 +113,15 @@ getTweets = (params, reqcallback) ->
 			Authorization: "Bearer " + bearerToken
 
 	request(options).pipe stream
-	stream.on "root", (obj) ->
+
+
+	stream.on "root", (obj, count) ->
+
+		###mysqlConn.query updateSinceIdQuery, [obj[0].id_str, obj[0].user.id_str], (err, result)->
+			console.log err if err
+    ###
 		async.eachSeries obj, ((entry, entrycallback) ->
 
-			#console.log("\n\n\nENTRY:",entry);
 			console.log "\n\n"
 			async.waterfall [
 				(callback) ->
@@ -122,7 +141,7 @@ getTweets = (params, reqcallback) ->
 							createRelationship from, to, "tweets", (err) ->
 								callback err, userScreenName, entry.id_str
 
-				, (userScreenName, tweetIdStr, callback) ->
+				, (userScreenName, tweetIdStr, callback) ->    #TODO not saving
 						if entry.entities.hashtags.length > 0
 							async.forEach entry.entities.hashtags, ((ht, cb) ->
 								mergeNode "Hashtag", "text", ht.text, null, (err, hashtag) ->
@@ -131,11 +150,12 @@ getTweets = (params, reqcallback) ->
 									createRelationship from, to, "has_hashtag", (err) ->
 										cb err
 							), (err) ->
+
 								callback err, userScreenName, tweetIdStr
 						else
 							callback null, userScreenName, tweetIdStr
 
-				, (userScreenName, tweetIdStr, callback) ->
+				, (userScreenName, tweetIdStr, callback) ->  #TODO not saving
 						if entry.in_reply_to_status_id
 							mergeNode "User", "screen_name", entry.in_reply_to_screen_name, {id_str: entry.in_reply_to_user_id_str}, (err, replyuser) ->
 								callback err  if err
@@ -158,7 +178,7 @@ getTweets = (params, reqcallback) ->
 								properties={ id_str: um.id_str, name: um.name,	screen_name: um.screen_name }
 								mergeNode 'User', 'screen_name', um.screen_name, properties, (err, mentioned) ->
 									userArray.push um.screen_name  if userArray.indexOf(um.screen_name) is -1
-									from = {type: 'Tweet', idKey:'id_str', tweetIdStr }
+									from = {type: 'Tweet', idKey:'id_str', idVal:tweetIdStr  }
 									to = {type:'User', idKey:'screen_name', idVal:um.screen_name}
 									createRelationship from, to, "mentions", (err) ->
 										cb err
@@ -173,10 +193,10 @@ getTweets = (params, reqcallback) ->
 
 			], (result, err) ->
 				entrycallback()
-
 		), (err) ->
 			console.log "ERROR: " + err  if err
 			reqcallback()
+
 
 
 mergeNode = (label, idKey, idVal, properties, callback) ->
@@ -190,22 +210,16 @@ mergeNode = (label, idKey, idVal, properties, callback) ->
 		query += " node."+k+"='"+v+"',"
 	query = query.slice(0, -1)
 	query += " RETURN node"
-	console.log query
-	#console.log callback
+	#console.log query
 	neodb.query query, (err, saved) ->
 		callback null, saved
 
 
 createRelationship = (from, to, type, callback) ->
-	###MATCH (charlie:Person { name:'Charlie Sheen' }),(wallStreet:Movie { title:'Wall Street' })
-	MERGE (charlie)-[r:ACTED_IN]->(wallStreet)
-	RETURN r
-	###
 	query = "MATCH (from:"+from.type+" { "+from.idKey+":'"+from.idVal+"' }),(to:"+to.type+" { "+to.idKey+":'"+to.idVal+"' }) "
 	query += "MERGE (from)-[r:"+type+"]->(to)	RETURN r"
-	console.log query
+	#console.log query
 	neodb.query query, (err, saved)->
-		#console.log err, saved
 		callback null, saved
 
 

@@ -36,7 +36,7 @@ init = ->
 	, (e, access_token, refresh_token, results) ->
 		bearerToken = access_token
 		userArray = []
-		mysqlConn.query "SELECT screen_name FROM users;", (err, result) ->
+		mysqlConn.query "SELECT screen_name FROM users order by created_at;", (err, result) ->
 			console.log err  if err
 			result.forEach (user) ->
 				userArray.push user.screen_name
@@ -59,33 +59,34 @@ getFriends = ()->
 
 				request(options).pipe stream
 				stream.on "root", (obj) ->
-					async.eachSeries obj.users, ((entry, entrycallback) ->
-						console.log "--------------------------------"+result[0].screen_name+" IS FOLLOWING "+ entry.screen_name
-						properties =
-							id_str: entry.id_str
-							name: entry.name
-							followers_count: entry.followers_count
-							friends_count: entry.friends_count
-							listed_count: entry.listed_count
-							favourites_count: entry.favourites_count
-							statuses_count: entry.statuses_count
-						mergeNode "User", "screen_name", entry.screen_name, properties, (err, user) ->
-							console.log err if err
-							from = { type : 'User',	idKey: 'screen_name',	idVal: result[0].screen_name }
-							to = { type : 'User', idKey: 'screen_name',	idVal: entry.screen_name }
-							createRelationship from, to, "follows", (err)->
+					if obj.users?
+						async.eachSeries obj.users, ((entry, entrycallback) ->
+							console.log "--------------------------------"+result[0].screen_name+" IS FOLLOWING "+ entry.screen_name
+							properties =
+								id_str: entry.id_str
+								name: entry.name
+								followers_count: entry.followers_count
+								friends_count: entry.friends_count
+								listed_count: entry.listed_count
+								favourites_count: entry.favourites_count
+								statuses_count: entry.statuses_count
+							mergeNode "User", "screen_name", entry.screen_name, properties, (err, user) ->
 								console.log err if err
-								mysqlConn.query "Update users set friends=1 WHERE screen_name=?", result[0].screen_name, (err, result) ->
-								if userArray.indexOf(entry.screen_name) is -1
-									insertNewUser entry.id_str, entry.screen_name, (err, result)->
-										console.log err if err
-										userArray.push entry.screen_name
-										console.log "------------NEW USER "+entry.screen_name
-										entrycallback(err)
-								else entrycallback(err)
-					), (err) ->
-						console.log "ERROR: " + err  if err
-						setImmediate next
+								from = { type : 'User',	idKey: 'screen_name',	idVal: result[0].screen_name }
+								to = { type : 'User', idKey: 'screen_name',	idVal: entry.screen_name }
+								createRelationship from, to, "follows", (err)->
+									console.log err if err
+									mysqlConn.query "Update users set friends=1 WHERE screen_name=?", result[0].screen_name, (err, result) ->
+									if userArray.indexOf(entry.screen_name) is -1
+										insertNewUser entry.id_str, entry.screen_name, (err, result)->
+											console.log err if err
+											userArray.push entry.screen_name
+											console.log "------------NEW USER "+entry.screen_name
+											entrycallback(err)
+									else entrycallback(err)
+						), (err) ->
+							console.log "ERROR: " + err  if err
+							setImmediate next
 		, 30000)
 	), (err) ->
 		console.log err

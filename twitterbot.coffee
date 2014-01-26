@@ -21,6 +21,7 @@ updateSinceIdQuery = "Update users set since_id=? where id_str = ?"
 
 init = ->
 	neodb = new neo4j.GraphDatabase("http://localhost:7474")
+	
 	mysqlConn = mysql.createConnection(
 		host: keys.mysql_host
 		database: keys.mysql_db
@@ -39,8 +40,56 @@ init = ->
 			console.log err  if err
 			result.forEach (user) ->
 				userArray.push user.screen_name
-
 			getData userArray
+		getFriends()
+
+
+getFriends = ()->
+	async.forever ((next) ->
+		setTimeout(()->
+			mysqlConn.query "SELECT screen_name FROM users WHERE created_at IS NOT NULL AND friends IS NULL limit 1;", (err, result) ->
+				console.log err  if err
+				stream = JSONStream.parse()
+				options =
+					url: "https://api.twitter.com/1.1/friends/list.json?"
+					qs: { screen_name: result[0].screen_name, skip_status: true, include_user_entities: false}
+					headers:
+						"User-Agent": "AIC Data Mining"
+						Authorization: "Bearer " + bearerToken
+
+				request(options).pipe stream
+				stream.on "root", (obj) ->
+					async.eachSeries obj.users, ((entry, entrycallback) ->
+						console.log "--------------------------------"+result[0].screen_name+" IS FOLLOWING "+ entry.screen_name
+						properties =
+							id_str: entry.id_str
+							name: entry.name
+							followers_count: entry.followers_count
+							friends_count: entry.friends_count
+							listed_count: entry.listed_count
+							favourites_count: entry.favourites_count
+							statuses_count: entry.statuses_count
+						mergeNode "User", "screen_name", entry.screen_name, properties, (err, user) ->
+							console.log err if err
+							from = { type : 'User',	idKey: 'screen_name',	idVal: result[0].screen_name }
+							to = { type : 'User', idKey: 'screen_name',	idVal: entry.screen_name }
+							createRelationship from, to, "follows", (err)->
+								console.log err if err
+								mysqlConn.query "Update users set friends=1 WHERE screen_name=?", result[0].screen_name, (err, result) ->
+								if userArray.indexOf(entry.screen_name) is -1
+									insertNewUser entry.id_str, entry.screen_name, (err, result)->
+										console.log err if err
+										userArray.push entry.screen_name
+										console.log "------------NEW USER "+entry.screen_name
+										entrycallback(err)
+								else entrycallback(err)
+					), (err) ->
+						console.log "ERROR: " + err  if err
+						setImmediate next
+		, 30000)
+	), (err) ->
+		console.log err
+
 
 
 getData = (userArray) ->
@@ -62,20 +111,7 @@ getData = (userArray) ->
 			count: 200, ->
 				userArray.push user
 				setImmediate next
-		###mysqlConn.query "SELECT since_id FROM users WHERE screen_name=?", user, (err, result) ->
-			return err if err
-			params =
-				screen_name: user
-				count: 200
 
-			if result[0].since_id?
-				params.since_id = result[0].since_id
-				console.log params
-
-			getTweets params, ->
-				userArray.push user
-				setImmediate next
-    ###
 	), (err) ->
 		console.log err
 
@@ -87,6 +123,10 @@ getUserInfo = (params, callback) ->
 		headers:
 			"User-Agent": "AIC Data Mining"
 			Authorization: "Bearer " + bearerToken
+
+	#request options, (err, response, body)->
+	#	if response.status_code
+
 
 	request(options).pipe stream
 	stream.on "root", (obj) ->
@@ -113,16 +153,22 @@ getTweets = (params, reqcallback) ->
 
 	request(options).pipe stream
 
-
 	stream.on "root", (obj, count) ->
 
-		###mysqlConn.query updateSinceIdQuery, [obj[0].id_str, obj[0].user.id_str], (err, result)->
-			console.log err if err
-    ###
+	
 		async.eachSeries obj, ((entry, entrycallback) ->
+			#console.log entry
 			async.waterfall [
 				(callback) ->
-					properties = { id_str: entry.user.id_str, name: entry.user.name	}
+					properties =
+						id_str: entry.user.id_str
+						name: entry.user.name
+						followers_count: entry.user.followers_count
+						friends_count: entry.user.friends_count
+						listed_count: entry.user.listed_count
+						favourites_count: entry.user.favourites_count
+						statuses_count: entry.user.statuses_count
+
 					mergeNode "User", "screen_name", entry.user.screen_name, properties, (err, user) ->
 						callback err, entry.user.screen_name
 
@@ -143,26 +189,26 @@ getTweets = (params, reqcallback) ->
 						if entry.entities.hashtags.length > 0
 							async.forEach entry.entities.hashtags, ((ht, cb) ->
 								mergeNode "Hashtag", "text", ht.text, null, (err, hashtag) ->
-										console.log err if err
+										console.log err.message + "164543" if err
 										from = {type: 'Tweet', idKey: 'id_str', idVal:tweetIdStr }
 										to = {type: 'Hashtag', idKey: 'text', idVal: ht.text }
 										createRelationship from, to, "has_hashtag", (err) ->
 											cb err
 								), (err) ->
-									console.log err if err
+									console.log err.message + "434321" if err
 						
 						callback null, userScreenName, tweetIdStr
 
 				, (userScreenName, tweetIdStr, callback) ->
 						if entry.in_reply_to_status_id
 							mergeNode "User", "screen_name", entry.in_reply_to_screen_name, {id_str: entry.in_reply_to_user_id_str}, (err, replyuser) ->
-								console.log  err if err
+								console.log  err.message+"342345" if err
 								mergeNode "Tweet", "id_str", entry.in_reply_to_status_id_str, null, (err, replytweet) ->
-									console.log err  if err
-									query = "MATCH (tweet:Tweet { id_str:'"+tweetIdStr+"' }) "
+									console.log err.message +"754656"  if err
+									query = "MATCH (tweet:Tweet { id_str:'"+tweetIdStr+"' }), (newuser:User { screen_name:'"+entry.in_reply_to_screen_name+"' }), (newtweet:Tweet { id_str:'"+entry.in_reply_to_user_id_str+"' })  "
 									query += "MERGE (tweet)-[r:in_reply_to]->(newtweet:Tweet { id_str:'"+entry.in_reply_to_user_id_str+"' })<-[s:tweets]-(newuser:User { screen_name:'"+entry.in_reply_to_screen_name+"' })	RETURN r, s "
 									neodb.query query, (err, saved)->
-										console.log err if err
+										console.log err.message+"756334" if err
 										
 						callback null, userScreenName, tweetIdStr
 
@@ -171,19 +217,19 @@ getTweets = (params, reqcallback) ->
 							async.eachSeries entry.entities.user_mentions, ((um, cb) ->
 								properties={ id_str: um.id_str, name: um.name,	screen_name: um.screen_name }
 								mergeNode 'User', 'screen_name', um.screen_name, properties, (err, mentioned) ->
-									if userArray.indexOf(um.screen_name) is -1 && um.screen_name isnt userScreenName
+									###if userArray.indexOf(um.screen_name) is -1 && um.screen_name isnt userScreenName
 										insertNewUser(um.id_str, um.screen_name, (e, result) ->
 											userArray.push um.screen_name
 											console.log "NEW USER ADDED "+ um.screen_name
 										)
-									
+									###
 									from = {type: 'Tweet', idKey:'id_str', idVal:tweetIdStr  }
 									to = {type:'User', idKey:'screen_name', idVal:um.screen_name}
 									createRelationship from, to, "mentions", (err) ->
-										console.log err if err
+										console.log err.message + "756534" if err
 										cb
 							), (err) ->
-								console.log err if err
+								console.log err.message + "48632" if err
 						
 						callback null, userScreenName, tweetIdStr
 
@@ -198,7 +244,7 @@ getTweets = (params, reqcallback) ->
 insertNewUser = (id_str, screen_name, callback)->
 	console.log "params "+id_str+" "+ screen_name
 	sql = mysqlConn.query 'INSERT INTO users (id_str, screen_name) values (?, ?)', [id_str, screen_name] , (err, result) ->
-		console.log err if err
+		console.log err.message+"95634" if err
 		callback err, result
 
 
@@ -207,11 +253,17 @@ mergeNode = (label, idKey, idVal, properties, callback) ->
 	if properties?
 		query += " ON CREATE SET "
 		for k,v of properties
-			query += " node."+k+"='"+v+"',"
+			if typeof v == 'number'
+				query += " node."+k+"="+v+","
+			else
+				query += " node."+k+"='"+v+"',"
 		query= query.slice(0, -1)
 		query += " ON MATCH SET "
 		for k,v of properties
-			query += " node."+k+"='"+v+"',"
+			if typeof v == 'number'
+				query += " node."+k+"="+v+","
+			else
+				query += " node."+k+"='"+v+"',"
 		query = query.slice(0, -1)
 	query += " RETURN node"
 	neodb.query query, (err, saved) ->

@@ -1,0 +1,10 @@
+module.exports = {
+	consumer_key: 'yourtwitterconsumerkey'
+	, consumer_secret: 'yourtwitterconsumersecret'
+	, access_token: 'yourtwitteraccesstoken'
+	, access_token_secret: 'yourtwitertokensecret'
+	, host: 'localhost'
+	, database: 'users'
+	, user: 'root'
+	, password: ''
+}

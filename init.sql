@@ -23,4 +23,24 @@ CREATE TABLE `users` (
   PRIMARY KEY (`id_str`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
+INSERT INTO users(screen_name) values ('petecashmore');
+INSERT INTO users(screen_name) values ('denverfoodguy');
+INSERT INTO users(screen_name) values ('BrianBrownNet');
+INSERT INTO users(screen_name) values ('GuyKawasaki');
+INSERT INTO users(screen_name) values ('om');
+INSERT INTO users(screen_name) values ('BarackObama');
+INSERT INTO users(screen_name) values ('NBA');
+INSERT INTO users(screen_name) values ('jack');
+INSERT INTO users(screen_name) values ('guardiantech');
+INSERT INTO users(screen_name) values ('stephenfry');
+INSERT INTO users(screen_name) values ('WSJ');
+INSERT INTO users(screen_name) values ('umairh');
+INSERT INTO users(screen_name) values ('rustyrockets');
+INSERT INTO users(screen_name) values ('tinchystryder');
+INSERT INTO users(screen_name) values ('HilaryAlexander');
+INSERT INTO users(screen_name) values ('Zee');
+INSERT INTO users(screen_name) values ('jemimakiss');
+INSERT INTO users(screen_name) values ('RichardDawkins');
+
+
 
